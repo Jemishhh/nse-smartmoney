@@ -1,0 +1,165 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>NSE Smart-Money Tracker</title>
+<style>
+:root{--bg:#0f1420;--card:#161d2e;--line:#25304a;--txt:#e6ebf5;--mut:#93a1bd;--accent:#4f8cff;--gold:#ffcf5c;--good:#2ecc71;--bad:#ff5c6c;--hd:#1f3864}
+*{box-sizing:border-box}body{margin:0;font-family:Arial,Helvetica,sans-serif;background:var(--bg);color:var(--txt);font-size:14px}
+header{padding:16px 20px;background:linear-gradient(180deg,#1a2740,#0f1420);border-bottom:1px solid var(--line)}
+h1{margin:0 0 4px;font-size:20px}.sub{color:var(--mut);font-size:12px}
+.stats{display:flex;gap:18px;flex-wrap:wrap;margin-top:10px}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:8px 12px;min-width:120px}
+.stat .v{font-size:18px;font-weight:bold}.stat .l{color:var(--mut);font-size:11px}
+.tabs{display:flex;gap:6px;padding:12px 20px 0}
+.tab{background:var(--card);border:1px solid var(--line);border-bottom:none;border-radius:8px 8px 0 0;padding:9px 16px;cursor:pointer;color:var(--mut);font-weight:bold}
+.tab.active{background:var(--hd);color:#fff}
+.controls{display:flex;gap:10px;flex-wrap:wrap;align-items:center;padding:12px 20px}
+input,select{background:var(--card);border:1px solid var(--line);color:var(--txt);border-radius:6px;padding:8px 10px;font-size:13px}
+input[type=text]{min-width:230px}
+label.ck{display:flex;align-items:center;gap:6px;color:var(--mut);cursor:pointer}
+.wrap{padding:0 20px 40px}
+table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+th,td{padding:9px 10px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+th{background:var(--hd);color:#fff;position:sticky;top:0;cursor:pointer;font-size:12px;user-select:none}
+th.l,td.l{text-align:left}
+tbody tr{cursor:pointer}tbody tr:hover{background:#1d2740}
+td.p{max-width:300px;overflow:hidden;text-overflow:ellipsis}
+.pos{color:var(--good)}.neg{color:var(--bad)}.mut{color:var(--mut)}
+.badge{display:inline-block;background:#233;border:1px solid var(--line);border-radius:10px;padding:1px 8px;font-size:11px;color:var(--mut)}
+.hi{background:rgba(255,207,92,.15);border-color:var(--gold);color:var(--gold);font-weight:bold}
+tr.hirow{box-shadow:inset 3px 0 0 var(--gold)}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:flex-start;justify-content:center;padding:30px 12px;overflow:auto;z-index:10}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:12px;max-width:1000px;width:100%;padding:20px}
+.panel h2{margin:0 0 2px;font-size:18px}.close{float:right;cursor:pointer;color:var(--mut);font-size:22px;line-height:1}
+.mrow{display:flex;gap:14px;flex-wrap:wrap;margin:12px 0}
+.m{background:#12192a;border:1px solid var(--line);border-radius:8px;padding:8px 12px;min-width:110px}
+.m .v{font-size:16px;font-weight:bold}.m .l{color:var(--mut);font-size:11px}
+.disc{color:var(--mut);font-size:11px;padding:14px 20px;border-top:1px solid var(--line);margin-top:10px}
+.hint{color:var(--mut);font-size:12px}
+.hidden{display:none}
+@media(max-width:640px){td.hideS,th.hideS{display:none}}
+</style></head><body>
+<header>
+<h1>NSE Bulk-Deals &mdash; Smart-Money Tracker</h1>
+<div class="sub">Get alerted when a proven, high-scoring investor BUYS. Data __SPAN__ &middot; generated __GEN__</div>
+<div class="stats">
+<div class="stat"><div class="v">__N__</div><div class="l">profitable players tracked</div></div>
+<div class="stat"><div class="v">__ROWS__</div><div class="l">clean deals</div></div>
+<div class="stat"><div class="v">__LATEST__</div><div class="l">data current to</div></div>
+</div></header>
+
+<div class="tabs">
+<div class="tab active" id="tabA" onclick="setTab('A')">&#128276; Buy Alerts</div>
+<div class="tab" id="tabP" onclick="setTab('P')">All Players</div>
+</div>
+
+<!-- ALERTS VIEW -->
+<div id="viewA">
+<div class="controls">
+<input type="text" id="qa" placeholder="Filter by player or symbol...">
+<label class="ck"><input type="checkbox" id="hionly"> High-score buyers only &#9733;</label>
+<label class="mut">Days <select id="days"><option>3</option><option>7</option><option selected>21</option></select></label>
+<span class="hint">Buys by tracked players in the last window. &#9733; = score in top 20% (&ge; __HITHRESH__). Click a row for the buyer&rsquo;s record.</span>
+</div>
+<div class="wrap"><table><thead><tr>
+<th class="l" data-k="d">Date</th><th class="l" data-k="p">Buyer</th>
+<th class="l" data-k="s">Bought</th><th data-k="q" class="hideS">Qty</th><th data-k="pr">Price</th>
+<th data-k="v">Value (cr)</th><th data-k="sc">Score</th><th data-k="wr" class="hideS">Win %</th>
+<th data-k="vw" class="hideS">Val-wtd %</th><th data-k="rk">Rank</th></tr></thead>
+<tbody id="tba"></tbody></table></div>
+</div>
+
+<!-- PLAYERS VIEW -->
+<div id="viewP" class="hidden">
+<div class="controls">
+<input type="text" id="q" placeholder="Search player name...">
+<label class="mut">Min round-trips <select id="mrt"><option>1</option><option selected>3</option><option>5</option><option>10</option></select></label>
+<label class="mut">Sort <select id="sort">
+<option value="sc">Score</option><option value="vw">Value-wtd return %</option>
+<option value="wr">Win rate %</option><option value="pnl">Realized P&L</option>
+<option value="cap">Capital deployed</option><option value="rt">Round-trips</option></select></label>
+<span class="hint">Click any row for that player&rsquo;s full record</span>
+</div>
+<div class="wrap"><table><thead><tr>
+<th class="l" data-k="rk">#</th><th class="l" data-k="p">Player</th>
+<th data-k="wr">Win %</th><th data-k="ar" class="hideS">Avg ret %</th><th data-k="vw">Val-wtd %</th>
+<th data-k="pnl">P&L (cr)</th><th data-k="cap" class="hideS">Capital (cr)</th>
+<th data-k="rt">Trips</th><th data-k="op" class="hideS">Open</th></tr></thead><tbody id="tb"></tbody></table></div>
+</div>
+
+<div class="disc">Realized return = avg buy vs avg sell price per symbol (quantity-weighted); only symbols the player both bought &amp; sold count.
+Bulk-deal data shows only large deals, so exits are partially visible and returns are approximate. A high score reflects past record, not a guarantee.
+Research tool, not investment advice.</div>
+<div class="overlay" id="ov"><div class="panel"><span class="close" onclick="hide()">&times;</span><div id="pc"></div></div></div>
+<script>
+const D=__DATA__, A=__ALERTS__, HT=__HITHRESH__;
+const DMAP={}; D.forEach(d=>DMAP[d.p]=d);
+const money=v=>v==null?'&ndash;':(v<0?'<span class=neg>':'<span class=pos>')+v.toFixed(2)+'</span>';
+const pct=v=>v==null?'<span class=mut>&ndash;</span>':(v<0?'<span class=neg>':'<span class=pos>')+v.toFixed(1)+'%</span>';
+const num=v=>v==null?'':v.toLocaleString('en-IN');
+
+/* ---- ALERTS ---- */
+let aSort='d',aq='',aHi=false,aDays=21;
+function maxDate(){return A.reduce((m,x)=>x.d>m?x.d:m,'0');}
+function aRows(){const md=maxDate();const cut=new Date(md);cut.setDate(cut.getDate()-aDays);
+ let r=A.filter(x=>{if(aHi&&!x.hi)return false;
+  if(new Date(x.d)<cut)return false;
+  const q=aq.toLowerCase();return !q||x.p.toLowerCase().includes(q)||x.s.toLowerCase().includes(q);});
+ r.sort((a,b)=> aSort==='d'?(b.d.localeCompare(a.d)||((b.sc||0)-(a.sc||0))):((b[aSort]??-1)-(a[aSort]??-1)));return r;}
+function renderA(){const r=aRows();document.getElementById('tba').innerHTML=r.slice(0,600).map(x=>
+ `<tr class="${x.hi?'hirow':''}" onclick="show('${x.p.replace(/'/g,"\\'")}')">
+ <td class=l>${x.d}</td>
+ <td class="l p" title="${x.p.replace(/"/g,'&quot;')}">${x.hi?'<span class="badge hi">&#9733;</span> ':''}${x.p}</td>
+ <td class=l title="${(x.n||'').replace(/"/g,'&quot;')}">${x.s}</td>
+ <td class=hideS>${num(x.q)}</td><td>${x.pr==null?'':x.pr.toFixed(2)}</td>
+ <td>${x.v==null?'':x.v.toFixed(3)}</td><td>${x.sc==null?'':x.sc.toFixed(1)}</td>
+ <td class=hideS>${pct(x.wr)}</td><td class=hideS>${pct(x.vw)}</td><td>#${x.rk}</td></tr>`).join('')
+ ||'<tr><td class=l colspan=10 style="color:var(--mut)">No buys by tracked players in this window.</td></tr>';}
+document.getElementById('qa').addEventListener('input',e=>{aq=e.target.value;renderA();});
+document.getElementById('hionly').addEventListener('change',e=>{aHi=e.target.checked;renderA();});
+document.getElementById('days').addEventListener('change',e=>{aDays=+e.target.value;renderA();});
+document.querySelectorAll('#viewA th[data-k]').forEach(th=>th.addEventListener('click',()=>{aSort=th.dataset.k;renderA();}));
+
+/* ---- PLAYERS ---- */
+let sortK='sc',pq='',mrt=3;
+function pRows(){let r=D.filter(d=>d.rt>=mrt&&d.p.toLowerCase().includes(pq));
+ r.sort((a,b)=>(b[sortK]??-1)-(a[sortK]??-1));return r;}
+function renderP(){document.getElementById('tb').innerHTML=pRows().slice(0,600).map((d,i)=>
+ `<tr onclick="show('${d.p.replace(/'/g,"\\'")}')">
+ <td class=l>${i+1}</td><td class="l p" title="${d.p.replace(/"/g,'&quot;')}">${d.p}</td>
+ <td>${pct(d.wr)}</td><td class=hideS>${pct(d.ar)}</td><td>${pct(d.vw)}</td>
+ <td>${money(d.pnl)}</td><td class=hideS>${d.cap==null?'':d.cap.toFixed(2)}</td>
+ <td>${d.rt}</td><td class=hideS>${d.op}</td></tr>`).join('');}
+document.getElementById('q').addEventListener('input',e=>{pq=e.target.value.toLowerCase();renderP();});
+document.getElementById('mrt').addEventListener('change',e=>{mrt=+e.target.value;renderP();});
+document.getElementById('sort').addEventListener('change',e=>{sortK=e.target.value;renderP();});
+document.querySelectorAll('#viewP th[data-k]').forEach(th=>th.addEventListener('click',()=>{sortK=th.dataset.k;renderP();}));
+
+/* ---- player detail ---- */
+function show(name){const d=DMAP[name];if(!d)return;
+ let ps=d.pos.map(p=>`<tr><td class=l title="${(p.n||'').replace(/"/g,'&quot;')}">${p.s}</td>
+ <td class=l><span class=badge>${p.st}</span></td>
+ <td>${p.ab==null?'':p.ab.toFixed(2)}</td><td>${p.as==null?'<span class=mut>held</span>':p.as.toFixed(2)}</td>
+ <td>${pct(p.ret)}</td><td>${money(p.pnl)}</td>
+ <td>${p.oq?num(p.oq):''}</td><td class="l mut">${p.fb||''}${p.ls?' &rarr; '+p.ls:''}</td></tr>`).join('');
+ document.getElementById('pc').innerHTML=`<h2>${d.p}</h2>
+ <div class=sub>Rank #${d.rk} &middot; score ${d.sc}${d.sc>=HT?' &middot; <span style="color:var(--gold)">&#9733; high score</span>':''}</div>
+ <div class=mrow>
+ <div class=m><div class=v>${pct(d.wr)}</div><div class=l>Win rate</div></div>
+ <div class=m><div class=v>${pct(d.vw)}</div><div class=l>Value-wtd return</div></div>
+ <div class=m><div class=v>${pct(d.ar)}</div><div class=l>Avg return</div></div>
+ <div class=m><div class=v>${money(d.pnl)}</div><div class=l>Realized P&L (cr)</div></div>
+ <div class=m><div class=v>${d.cap==null?'':d.cap.toFixed(2)}</div><div class=l>Capital deployed (cr)</div></div>
+ <div class=m><div class=v>${d.rt}</div><div class=l>Round-trips</div></div>
+ <div class=m><div class=v>${d.op}</div><div class=l>Open positions</div></div></div>
+ <h3 style="margin:6px 0">Track record by stock</h3>
+ <table><thead><tr><th class=l>Symbol</th><th class=l>Status</th><th>Avg buy</th><th>Avg sell</th>
+ <th>Return</th><th>P&L (cr)</th><th>Held qty</th><th class=l>Dates</th></tr></thead><tbody>${ps}</tbody></table>`;
+ document.getElementById('ov').style.display='flex';}
+function hide(){document.getElementById('ov').style.display='none';}
+document.getElementById('ov').addEventListener('click',e=>{if(e.target.id==='ov')hide();});
+function setTab(t){document.getElementById('tabA').classList.toggle('active',t==='A');
+ document.getElementById('tabP').classList.toggle('active',t==='P');
+ document.getElementById('viewA').classList.toggle('hidden',t!=='A');
+ document.getElementById('viewP').classList.toggle('hidden',t!=='P');}
+renderA();renderP();
+</script></body></html>
