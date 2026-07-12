@@ -2,7 +2,7 @@ name: Daily NSE smart-money update
 on:
   schedule:
     - cron: '0 3 * * *'      # 03:00 UTC = 08:30 IST, daily
-  workflow_dispatch: {}       # lets you run it manually from the Actions tab
+  workflow_dispatch: {}
 permissions:
   contents: write
 concurrency:
@@ -29,3 +29,23 @@ jobs:
           git config user.email "nse-bot@users.noreply.github.com"
           git add -A
           if git diff --staged --quiet; then echo "no changes"; else git commit -m "daily update $(date -u +%F)" && git push; fi
+      - name: Build morning email
+        run: |
+          python build_email.py
+          echo "EMAIL_SUBJECT=$(cat email_subject.txt)" >> "$GITHUB_ENV"
+      - name: Send morning email
+        if: ${{ env.MAIL_ENABLED == 'true' }}
+        continue-on-error: true
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{ secrets.MAIL_USERNAME }}
+          password: ${{ secrets.MAIL_PASSWORD }}
+          from: NSE Smart-Money <${{ secrets.MAIL_USERNAME }}>
+          to: ${{ secrets.MAIL_USERNAME }}
+          subject: ${{ env.EMAIL_SUBJECT }}
+          html_body: file://email_body.html
+    env:
+      MAIL_ENABLED: ${{ secrets.MAIL_USERNAME != '' && 'true' || 'false' }}
