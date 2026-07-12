@@ -73,8 +73,10 @@ if newfiles:
         master=master.drop_duplicates(subset=["Date","Symbol","Client Name","Buy / Sell","Quantity","Price"])
         added=len(master)- 0
         print(f"ingested {len(newd)} clean new rows (dropped {nd} intraday)")
+    os.makedirs(ARC,exist_ok=True)
     for f in newfiles:
-        os.rename(f,os.path.join(ARC,os.path.basename(f)))
+        try: os.replace(f,os.path.join(ARC,os.path.basename(f)))
+        except Exception as e: print("archive warn:",e)
 master=master.sort_values(["Date","Symbol","Client Name"]).reset_index(drop=True)
 master.to_csv(MASTER,index=False)
 latest=master["Date"].max()
