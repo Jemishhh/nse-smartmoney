@@ -26,16 +26,18 @@ H={"User-Agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (K
    "Sec-Ch-Ua-Mobile":"?0","Sec-Ch-Ua-Platform":'"Windows"',
    "Referer":"https://www.nseindia.com/report-detail/display-bulk-and-block-deals"}
 s=requests.Session(); s.headers.update(H)
-last_err=""
+prime_err=""; api_err=""
 def prime():
-    global last_err
+    global prime_err
     try:
         r1=s.get("https://www.nseindia.com/",timeout=20); time.sleep(1)
         r2=s.get("https://www.nseindia.com/market-data/large-deals",timeout=20); time.sleep(1)
-        last_err=f"prime status {r1.status_code}/{r2.status_code}"
+        prime_err=f"prime status {r1.status_code}/{r2.status_code}"
+        if r1.status_code!=200: prime_err+=f" | homepage body: {r1.text[:150]!r}"
     except Exception as e:
-        last_err=f"prime exception: {e}"; print("prime warn:",e)
+        prime_err=f"prime exception: {e}"; print("prime warn:",e)
 prime()
+print("initial prime:",prime_err)
 def dmy(d): return d.strftime("%d-%m-%Y")
 cur=frm; got=0; attempted=0
 while cur<=today:
@@ -49,17 +51,19 @@ while cur<=today:
                 fn=os.path.join(INC,f"deals_{dmy(cur)}_{dmy(end)}.csv"); open(fn,"w",encoding="utf-8").write(r.text)
                 print("fetched",cur,"->",end,len(r.text),"bytes"); got+=1; ok=True; break
             else:
-                snippet=r.text[:150].replace("\n"," ")
-                last_err=f"HTTP {r.status_code}: {snippet}"
+                snippet=r.text[:200].replace("\n"," ")
+                api_err=f"HTTP {r.status_code} on API call: {snippet}"
                 print("bad resp",r.status_code,"retry",attempt,"body:",snippet)
                 time.sleep(3+attempt*2); prime()
         except Exception as e:
-            last_err=f"exception: {e}"
+            api_err=f"exception on API call: {e}"
             print("err",e,"retry",attempt); time.sleep(3+attempt*2); prime()
-    if not ok: print("FAILED window",cur,end,"-",last_err)
+    if not ok: print("FAILED window",cur,end,"- api_err:",api_err,"| last prime:",prime_err)
     cur=end+datetime.timedelta(days=1); time.sleep(1)
 print("windows fetched:",got,"/",attempted)
 write_status(ok=(got==attempted),reason=("all_ok" if got==attempted else ("partial" if got>0 else "all_failed")),
-             last_data_date=str(last),windows_attempted=attempted,windows_ok=got,last_error=("" if got==attempted else last_err))
+             last_data_date=str(last),windows_attempted=attempted,windows_ok=got,
+             last_api_error=("" if got==attempted else api_err),
+             last_prime_status=prime_err)
 if got==0 and attempted>0:
-    print("WARNING: every fetch window failed — likely NSE is blocking this runner's IP. See fetch_status.json / last_error above.")
+    print("WARNING: every fetch window failed — likely NSE is blocking this runner's IP. See fetch_status.json for the real API error (not just priming).")
