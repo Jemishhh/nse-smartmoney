@@ -1,0 +1,9 @@
+{
+  "ok": false,
+  "reason": "all_failed",
+  "last_data_date": "2026-07-10",
+  "windows_attempted": 1,
+  "windows_ok": 0,
+  "last_error": "prime status 403/200",
+  "checked_at_ist": "2026-07-15 22:29"
+}
