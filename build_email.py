@@ -7,7 +7,18 @@ def load(n):
     except: return {}
 al=load("alerts.json").get("alerts",[])
 S=load("daily_summary.json")
+FS=load("fetch_status.json")
 site="https://jemishhh.github.io/nse-smartmoney/"
+warn=""
+if FS and FS.get("windows_attempted",0)>0 and FS.get("windows_ok",0)==0:
+    warn=(f"<div style='background:#fff3cd;border:1px solid #ffe69c;color:#664d03;"
+          f"padding:8px 12px;border-radius:6px;font-size:12px;margin-bottom:10px'>"
+          f"&#9888; Data fetch failed today (as of {FS.get('checked_at_ist','')} IST) — NSE did not return new data, "
+          f"likely blocking this server. Showing last known data through {S.get('data_through','')}.</div>")
+elif FS and FS.get("windows_attempted",0)>0 and FS.get("windows_ok",0) < FS.get("windows_attempted",0):
+    warn=(f"<div style='background:#fff3cd;border:1px solid #ffe69c;color:#664d03;"
+          f"padding:8px 12px;border-radius:6px;font-size:12px;margin-bottom:10px'>"
+          f"&#9888; Partial data fetch today ({FS.get('windows_ok')}/{FS.get('windows_attempted')} windows) — some recent days may be missing.</div>")
 maxd=max((a["d"] for a in al),default="")
 hi_new=[a for a in al if a["d"]==maxd and a.get("hi")]
 oth_new=[a for a in al if a["d"]==maxd and not a.get("hi")]
@@ -32,6 +43,7 @@ tp="".join(f"<tr><td>#{t['Rank']}</td><td><b>{t['Player']}</b></td><td align=rig
 html=f"""<div style="font:14px Arial,Helvetica,sans-serif;color:#1a2233;max-width:720px">
 <h2 style="color:#1f3864;margin:0 0 4px">NSE Bulk-Deals — Smart-Money Alert</h2>
 <div style="color:#667;font-size:12px">Data current to {S.get('data_through','')} · {S.get('players','')} tracked players · {S.get('new_rows_today',0)} new deal rows</div>
+{warn}
 {lead}
 <table border=0 cellpadding=5 style="border-collapse:collapse;font:13px Arial">
 <tr style="background:#1f3864;color:#fff"><th align=left>Date</th><th align=left>Buyer</th><th align=left>Bought</th><th>Qty</th><th>Price</th><th>Rank/Score</th><th>Win%</th></tr>
@@ -44,6 +56,8 @@ html=f"""<div style="font:14px Arial,Helvetica,sans-serif;color:#1a2233;max-widt
 <p style="margin-top:16px"><a href="{site}" style="background:#4f8cff;color:#fff;padding:9px 16px;border-radius:6px;text-decoration:none">Open full dashboard →</a></p>
 <p style="color:#889;font-size:11px;margin-top:14px">A high score reflects past record, not a guarantee. Research tool, not investment advice.</p>
 </div>"""
+if FS and FS.get("windows_attempted",0)>0 and FS.get("windows_ok",0)==0:
+    subj="[DATA FETCH FAILED] "+subj
 open(os.path.join(BASE,"email_body.html"),"w").write(html)
 open(os.path.join(BASE,"email_subject.txt"),"w").write(subj)
 print("email built:",subj)
