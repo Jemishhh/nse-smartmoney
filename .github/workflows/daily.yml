@@ -1,7 +1,7 @@
 name: Daily NSE smart-money update
 on:
   schedule:
-    - cron: '0 3 * * *'      # 03:00 UTC = 08:30 IST, daily
+    - cron: '30 0 * * *'      # 03:00 UTC = 08:30 IST, daily
   workflow_dispatch: {}
 permissions:
   contents: write
