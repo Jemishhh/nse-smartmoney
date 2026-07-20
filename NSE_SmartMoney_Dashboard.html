@@ -50,6 +50,8 @@ tr.hirow{box-shadow:inset 3px 0 0 var(--gold)}
 <div class="tabs">
 <div class="tab active" id="tabA" onclick="setTab('A')">&#128276; Buy Alerts</div>
 <div class="tab" id="tabP" onclick="setTab('P')">All Players</div>
+ <div class="tab" id="tabM" onclick="setTab('M')">&#128203; Paste Data</div>
+
 </div>
 
 <!-- ALERTS VIEW -->
@@ -85,7 +87,20 @@ tr.hirow{box-shadow:inset 3px 0 0 var(--gold)}
 <th data-k="pnl">P&L (cr)</th><th data-k="cap" class="hideS">Capital (cr)</th>
 <th data-k="rt">Trips</th><th data-k="op" class="hideS">Open</th></tr></thead><tbody id="tb"></tbody></table></div>
 </div>
-
+<!-- MANUAL PASTE VIEW -->
+<div id="viewM" class="hidden">
+<div class="wrap" style="padding-top:16px">
+<p class="hint">Automated NSE fetching is currently blocked server-side. Use this as a manual backup: copy bulk-deal rows from Excel &mdash; including the header row &mdash; and paste below. Your data needs a Date, Symbol, Buy/Sell, Quantity and Price somewhere in it (Security Name / Client Name optional); column order doesn&rsquo;t matter, you map them below.</p>
+<textarea id="pasteBox" rows="10" style="width:100%;background:var(--card);border:1px solid var(--line);color:var(--txt);border-radius:8px;padding:10px;font-family:monospace;font-size:12px" placeholder="Paste copied Excel rows here (including header row)..."></textarea>
+<div class="controls" style="padding-left:0">
+<button onclick="parsePaste()" style="background:var(--accent);color:#fff;border:none;border-radius:6px;padding:9px 16px;cursor:pointer;font-weight:bold">Parse pasted data</button>
+<span id="pasteMsg" class="hint"></span>
+</div>
+<div id="mapBox"></div>
+<div id="previewBox"></div>
+</div>
+</div>
+ 
 <div class="disc">Realized return = avg buy vs avg sell price per symbol (quantity-weighted); only symbols the player both bought &amp; sold count.
 Bulk-deal data shows only large deals, so exits are partially visible and returns are approximate. A high score reflects past record, not a guarantee.
 Research tool, not investment advice.</div>
@@ -159,7 +174,98 @@ function hide(){document.getElementById('ov').style.display='none';}
 document.getElementById('ov').addEventListener('click',e=>{if(e.target.id==='ov')hide();});
 function setTab(t){document.getElementById('tabA').classList.toggle('active',t==='A');
  document.getElementById('tabP').classList.toggle('active',t==='P');
+ document.getElementById('tabM').classList.toggle('active',t==='M');
  document.getElementById('viewA').classList.toggle('hidden',t!=='A');
- document.getElementById('viewP').classList.toggle('hidden',t!=='P');}
+ document.getElementById('viewP').classList.toggle('hidden',t!=='P');
+ document.getElementById('viewM').classList.toggle('hidden',t!=='M');}
 renderA();renderP();
+
+/* ---- MANUAL PASTE: paste Excel rows -> cleaned CSV matching the pipeline's expected columns ---- */
+const REQ_FIELDS=[['date','Date'],['symbol','Symbol'],['secname','Security Name'],['client','Client Name'],['side','Buy / Sell'],['qty','Quantity'],['price','Price']];
+const MONS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+let pasteRows=[],pasteHeaders=[],manualCsvRows=null;
+function splitLine(line){
+ if(line.includes('\t'))return line.split('\t');
+ const out=[];let cur='',inq=false;
+ for(let i=0;i<line.length;i++){const c=line[i];
+  if(c==='"'){inq=!inq;continue;}
+  if(c===','&&!inq){out.push(cur);cur='';continue;}
+  cur+=c;}
+ out.push(cur);return out;
+}
+function parsePaste(){
+ const raw=document.getElementById('pasteBox').value.replace(/\r/g,'').split('\n').map(l=>l.trim()).filter(l=>l.length);
+ if(!raw.length){document.getElementById('pasteMsg').textContent='Nothing pasted.';return;}
+ const rows=raw.map(splitLine);
+ const first=rows[0];
+ const looksLikeHeader=first.some(c=>isNaN(parseFloat((c||'').replace(/,/g,'')))&&c.trim().length>0);
+ if(looksLikeHeader){pasteHeaders=first;pasteRows=rows.slice(1);}
+ else{pasteHeaders=first.map((_,i)=>'Column '+(i+1));pasteRows=rows;}
+ document.getElementById('pasteMsg').textContent=`Parsed ${pasteRows.length} row(s), ${pasteHeaders.length} column(s). Map the columns below, then generate.`;
+ renderMap();
+}
+function guessCol(key){
+ const idx=pasteHeaders.findIndex(h=>{const hh=h.toLowerCase();
+  if(key==='date')return hh.includes('date');
+  if(key==='symbol')return hh==='symbol'||hh.includes('symbol');
+  if(key==='secname')return hh.includes('security')||(hh.includes('name')&&!hh.includes('client'));
+  if(key==='client')return hh.includes('client');
+  if(key==='side')return hh.includes('buy')||hh.includes('sell')||hh.includes('b/s')||hh==='side';
+  if(key==='qty')return hh.includes('qty')||hh.includes('quantity');
+  if(key==='price')return hh.includes('price')||hh.includes('rate');
+  return false;});
+ return idx;
+}
+function renderMap(){
+ const sel=pasteHeaders.map((h,i)=>`<option value="${i}">${String(h).replace(/</g,'&lt;')}</option>`).join('');
+ document.getElementById('mapBox').innerHTML='<div class="controls" style="padding-left:0;flex-wrap:wrap">'+
+  REQ_FIELDS.map(([key,label])=>`<label class=mut>${label}<br><select id="map_${key}"><option value="-1">-- skip --</option>${sel}</select></label>`).join('')+
+  '</div><button onclick="buildPreview()" style="background:var(--good);color:#fff;border:none;border-radius:6px;padding:9px 16px;cursor:pointer;font-weight:bold;margin-top:6px">Clean &amp; preview</button>';
+ REQ_FIELDS.forEach(([key])=>{const g=guessCol(key);const elm=document.getElementById('map_'+key);if(g>=0)elm.value=g;});
+}
+function fmtDate(y,mo,d){return String(d).padStart(2,'0')+'-'+MONS[mo-1]+'-'+y;}
+function cleanDate(s){
+ s=(s||'').trim();if(!s)return '';
+ let m;
+ if(m=s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/))return fmtDate(+m[3],+m[2],+m[1]);
+ if(m=s.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/))return fmtDate(+m[1],+m[2],+m[3]);
+ if(m=s.match(/^(\d{1,2})[\-\s]([A-Za-z]{3,})[\-\s](\d{2,4})$/)){
+  const mo=MONS.findIndex(x=>x.toLowerCase()===m[2].slice(0,3).toLowerCase())+1;let y=+m[3];if(y<100)y+=2000;
+  if(mo>0)return fmtDate(y,mo,+m[1]);}
+ if(/^\d+(\.\d+)?$/.test(s)){const days=Math.floor(+s);const dt=new Date(Date.UTC(1899,11,30)+days*86400000);
+  return fmtDate(dt.getUTCFullYear(),dt.getUTCMonth()+1,dt.getUTCDate());}
+ return s;
+}
+function cleanNum(s){return (s||'').replace(/[",₹\s]/g,'');}
+function buildPreview(){
+ const idx={};REQ_FIELDS.forEach(([key])=>idx[key]=+document.getElementById('map_'+key).value);
+ if(idx.date<0||idx.symbol<0||idx.side<0||idx.qty<0||idx.price<0){
+  document.getElementById('previewBox').innerHTML='<p style="color:var(--bad)">Date, Symbol, Buy/Sell, Quantity and Price are required &mdash; map all of those.</p>';return;}
+ const out=pasteRows.map(r=>{
+  const side=(r[idx.side]||'').trim().toUpperCase();
+  return {Date:cleanDate(r[idx.date]),Symbol:(r[idx.symbol]||'').trim().toUpperCase(),
+   'Security Name':idx.secname>=0?(r[idx.secname]||'').trim():'',
+   'Client Name':idx.client>=0?(r[idx.client]||'').trim():'',
+   'Buy / Sell':side.startsWith('B')?'BUY':side.startsWith('S')?'SELL':side,
+   'Quantity Traded':cleanNum(r[idx.qty]),'Trade Price / Wght. Avg. Price':cleanNum(r[idx.price])};
+ }).filter(r=>r.Date&&r.Symbol&&r['Quantity Traded']&&r['Trade Price / Wght. Avg. Price']);
+ manualCsvRows=out;
+ const cols=['Date','Symbol','Security Name','Client Name','Buy / Sell','Quantity Traded','Trade Price / Wght. Avg. Price'];
+ let html='<p class="hint">'+out.length+' clean row(s) ready (rows missing date/symbol/qty/price were dropped).</p>';
+ html+='<div style="overflow:auto;max-height:300px"><table><thead><tr>'+cols.map(c=>`<th class=l>${c}</th>`).join('')+'</tr></thead><tbody>'+
+  out.slice(0,50).map(r=>'<tr>'+cols.map(c=>`<td class=l>${String(r[c]||'').replace(/</g,'&lt;')}</td>`).join('')+'</tr>').join('')+'</tbody></table></div>';
+ if(out.length>50)html+=`<p class="hint">Showing first 50 of ${out.length} rows.</p>`;
+ html+='<button onclick="downloadCsv()" style="background:var(--gold);color:#1a1400;border:none;border-radius:6px;padding:9px 16px;cursor:pointer;font-weight:bold;margin-top:8px">Download CSV</button>';
+ html+='<p class="hint" style="margin-top:10px">Next: on GitHub open the <code>incoming</code> folder in this repo &rarr; Add file &rarr; Upload files &rarr; drop this CSV in &rarr; Commit. Then Actions &rarr; Daily NSE smart-money update &rarr; Run workflow. It gets cleaned, deduped and scored exactly like automated data.</p>';
+ document.getElementById('previewBox').innerHTML=html;
+}
+function downloadCsv(){
+ if(!manualCsvRows||!manualCsvRows.length)return;
+ const cols=['Date','Symbol','Security Name','Client Name','Buy / Sell','Quantity Traded','Trade Price / Wght. Avg. Price'];
+ const esc=v=>{v=(v==null?'':String(v));return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;};
+ const lines=[cols.join(',')].concat(manualCsvRows.map(r=>cols.map(c=>esc(r[c])).join(',')));
+ const blob=new Blob([lines.join('\n')],{type:'text/csv'});
+ const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+ a.download=`manual_deals_${new Date().toISOString().slice(0,10)}.csv`;a.click();
+}
 </script></body></html>
