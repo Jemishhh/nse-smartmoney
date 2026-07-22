@@ -4,7 +4,7 @@
   "last_data_date": "2026-07-20",
   "windows_attempted": 1,
   "windows_ok": 0,
-  "last_api_error": "exception on API call: HTTPSConnectionPool(host='www.nseindia.com', port=443): Read timed out. (read timeout=40)",
-  "last_prime_status": "prime exception: HTTPSConnectionPool(host='www.nseindia.com', port=443): Read timed out. (read timeout=20)",
-  "checked_at_ist": "2026-07-21 09:31"
+  "last_api_error": "HTTP 200 on API call: \u0090.\u0003\u0080\u00fc\u00af{\u00ad\u00ef\u00b7\u00a9t\\\u00dfa\u00f5\u00f9\u00962(F1\b\u00af$\u0093\u00c9v\u00c4f\u0013\u00ce`\u0098c\u0093\u00d9M]\u00bf_Y\u00bey\u00e7>m\u0007\u00a8\u00f6f\u00e7\u00ee\u00cd\u00cdn\u00c2!zv\u00db\u00f3\u00bb\u00e4'}/=\"\u00ccQ{K\u0093\u00e3\u000e\u00ee\u00b8jcE\u0080~J\u0001\u00a1\u0013\u0095\u0095\u0015\u00f2\u00cf\u009d\u00fcfC\u00d5J:q7\u00e9xd\u00b4\u00f1]\u00ef\u00e0\u00ff\u00ff\u00fa\u00df\u00ae\u001a\u00b6\u0011\u00ed`\u0097\u00beno\u00eb\u00dc\u00a3\u00c6\u00cb\u00e7}\u00da\u00be\u00d0\\\u0080\u001b\u00cb\u0095\u00f34.\u00dbC\u00d5\u00fd\u00e7\u0017\u00fa\u001d\u00a5q\u00fe\r\u00af?>\u0087e+\u0092\u00ef\u00c3u\u00bc\u00de\f{A\u00e8$\u00cf\u00e7F\u00bf\u00a3\u0097\u00f7\u008f\u00ad@\u00f6\u00d7{AY;\u00d8\u00c5q\u00ac\u00a7}\u00a0\u00ddo;J\u00be=\u009f",
+  "last_prime_status": "prime status 403/200 | homepage body: '<HTML><HEAD>\\n<TITLE>Access Denied</TITLE>\\n</HEAD><BODY>\\n<H1>Access Denied</H1>\\n \\nYou don\\'t have permission to access \"http&#58;&#47;&#47;www&#46;nsein'",
+  "checked_at_ist": "2026-07-22 09:28"
 }
