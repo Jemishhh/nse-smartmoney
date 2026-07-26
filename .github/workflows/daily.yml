@@ -1,7 +1,8 @@
 name: Daily NSE smart-money update
 on:
-  schedule:
-    - cron: '30 0 * * *'      # 03:00 UTC = 08:30 IST, daily
+  # schedule disabled at user's request — NSE fetch was blocked server-side anyway.
+  # Data now comes in manually via workflow_dispatch after CSVs are dropped in incoming/.
+  # - cron: '30 0 * * *'     # 00:30 UTC = 06:00 IST, daily
   workflow_dispatch: {}
 permissions:
   contents: write
